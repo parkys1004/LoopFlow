@@ -1,0 +1,5 @@
+{
+  "name": "LoopFlow",
+  "description": "음악의 리듬을 시각적 흐름으로 바꾸는 AI 비주얼 루프 생성기",
+  "requestFramePermissions": []
+}
