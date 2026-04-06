@@ -166,13 +166,14 @@ export default function App() {
   const [titleColor, setTitleColor] = useState('#ffffff');
   const [artistColor, setArtistColor] = useState('#818cf8');
   const [textOpacity, setTextOpacity] = useState(80);
-  const [showProgressBar, setShowProgressBar] = useState(true);
-  const [showWatermark, setShowWatermark] = useState(true);
+  const [showProgressBar, setShowProgressBar] = useState(false);
+  const [showWatermark, setShowWatermark] = useState(false);
   const [watermarkText, setWatermarkText] = useState('');
   const [textBehindSubject, setTextBehindSubject] = useState(false);
 
   // Step 5: Export
   const [aspectRatio, setAspectRatio] = useState('16:9');
+  const [exportResolution, setExportResolution] = useState<'FHD' | '4K'>('FHD');
   
   // Global & Playback State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -495,8 +496,14 @@ export default function App() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    canvas.width = aspectRatio === '16:9' ? 1920 : aspectRatio === '9:16' ? 1080 : 1080;
-    canvas.height = aspectRatio === '16:9' ? 1080 : aspectRatio === '9:16' ? 1920 : 1080;
+    const is4K = exportResolution === '4K';
+    const width169 = is4K ? 3840 : 1920;
+    const height169 = is4K ? 2160 : 1080;
+    const width916 = is4K ? 2160 : 1080;
+    const height916 = is4K ? 3840 : 1920;
+
+    canvas.width = aspectRatio === '16:9' ? width169 : aspectRatio === '9:16' ? width916 : width169;
+    canvas.height = aspectRatio === '16:9' ? height169 : aspectRatio === '9:16' ? height916 : height169;
     
     const stream = canvas.captureStream(30);
     
@@ -512,7 +519,16 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'LoopFlow_Export.webm';
+      
+      const now = new Date();
+      const dateStr = now.getFullYear() + 
+        String(now.getMonth() + 1).padStart(2, '0') + 
+        String(now.getDate()).padStart(2, '0') + '_' + 
+        String(now.getHours()).padStart(2, '0') + 
+        String(now.getMinutes()).padStart(2, '0') + 
+        String(now.getSeconds()).padStart(2, '0');
+        
+      a.download = `LoopFlow_${dateStr}.webm`;
       a.click();
       setIsExporting(false);
     };
@@ -1128,6 +1144,7 @@ export default function App() {
                 <p className="text-xs text-neutral-400 mb-6">플랫폼에 맞는 해상도로 최종 루프 영상을 추출합니다.</p>
 
                 <div className="space-y-3 mb-8">
+                  <label className="block text-xs font-semibold text-neutral-300 mb-2">화면 비율 (Aspect Ratio)</label>
                   {ratios.map(ratio => (
                     <button
                       key={ratio.id}
@@ -1146,6 +1163,34 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+
+                <div className="space-y-3 mb-8">
+                  <label className="block text-xs font-semibold text-neutral-300 mb-2">출력 해상도 (Resolution)</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setExportResolution('FHD')}
+                      className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${
+                        exportResolution === 'FHD'
+                          ? 'bg-indigo-600/10 border-indigo-500 text-white'
+                          : 'bg-neutral-800/50 border-neutral-700/50 text-neutral-400 hover:bg-neutral-800'
+                      }`}
+                    >
+                      <span className="font-black text-lg">FHD</span>
+                      <span className="text-[10px] text-neutral-500 mt-1">1080p</span>
+                    </button>
+                    <button
+                      onClick={() => setExportResolution('4K')}
+                      className={`flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${
+                        exportResolution === '4K'
+                          ? 'bg-indigo-600/10 border-indigo-500 text-white'
+                          : 'bg-neutral-800/50 border-neutral-700/50 text-neutral-400 hover:bg-neutral-800'
+                      }`}
+                    >
+                      <span className="font-black text-lg">4K</span>
+                      <span className="text-[10px] text-neutral-500 mt-1">2160p (고화질)</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-neutral-800/30 rounded-xl p-5 border border-neutral-700/50">
@@ -1153,7 +1198,12 @@ export default function App() {
                 <ul className="text-xs text-neutral-400 space-y-2.5">
                   <li className="flex justify-between"><span>Source:</span> <span className="text-white font-medium">{creationMode === 'prompt' ? 'AI Generated' : 'User Upload'}</span></li>
                   <li className="flex justify-between"><span>Loop Method:</span> <span className="text-white font-medium">{loopMethod}</span></li>
-                  <li className="flex justify-between"><span>Resolution:</span> <span className="text-white font-medium">{aspectRatio === '16:9' ? 'FHD (1920x1080)' : aspectRatio === '9:16' ? 'FHD (1080x1920)' : 'Square (1080x1080)'}</span></li>
+                  <li className="flex justify-between">
+                    <span>Resolution:</span> 
+                    <span className="text-white font-medium">
+                      {exportResolution} ({aspectRatio === '16:9' ? (exportResolution === '4K' ? '3840x2160' : '1920x1080') : aspectRatio === '9:16' ? (exportResolution === '4K' ? '2160x3840' : '1080x1920') : (exportResolution === '4K' ? '2160x2160' : '1080x1080')})
+                    </span>
+                  </li>
                 </ul>
               </div>
 
