@@ -4,7 +4,7 @@ import {
   Wand2, Activity, Sliders, Layout, UploadCloud, 
   CheckCircle2, Loader2, Check, Sparkles, Scissors, 
   Zap, Video, MoveHorizontal, RefreshCw, ArrowRight, X, Type,
-  Settings, Save, Upload, Key, AlertCircle
+  Settings, Save, Upload, Key, AlertCircle, Maximize
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
@@ -180,6 +180,11 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  
+  const [isOriginalPlaying, setIsOriginalPlaying] = useState(false);
+  const [originalProgress, setOriginalProgress] = useState(0);
+  const [originalCurrentTime, setOriginalCurrentTime] = useState(0);
+  const [originalDuration, setOriginalDuration] = useState(0);
   const [mediaSrc, setMediaSrc] = useState<string | null>("https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2000&auto=format&fit=crop");
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
   
@@ -187,8 +192,11 @@ export default function App() {
   const [exportProgress, setExportProgress] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const originalVideoRef = useRef<HTMLVideoElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const originalContainerRef = useRef<HTMLDivElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   // Playback control
   useEffect(() => {
@@ -217,6 +225,34 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isPlaying, mediaType]);
 
+  // Sync original video play state
+  useEffect(() => {
+    if (originalVideoRef.current && mediaType === 'video') {
+      if (isOriginalPlaying) {
+        originalVideoRef.current.play().catch(e => console.error(e));
+      } else {
+        originalVideoRef.current.pause();
+      }
+    }
+  }, [isOriginalPlaying, mediaType]);
+
+  // Original video time tracking
+  useEffect(() => {
+    const video = originalVideoRef.current;
+    if (!video) return;
+    
+    const handleTimeUpdate = () => {
+      setOriginalCurrentTime(video.currentTime);
+      setOriginalDuration(video.duration || 0);
+      if (video.duration) {
+        setOriginalProgress((video.currentTime / video.duration) * 100);
+      }
+    };
+    
+    video.addEventListener('timeupdate', handleTimeUpdate);
+    return () => video.removeEventListener('timeupdate', handleTimeUpdate);
+  }, [mediaType]);
+
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -224,6 +260,7 @@ export default function App() {
       setMediaSrc(url);
       setMediaType(file.type.startsWith('video/') ? 'video' : 'image');
       setIsPlaying(false);
+      setIsOriginalPlaying(false);
     }
   };
 
@@ -1235,119 +1272,218 @@ export default function App() {
         </div>
 
         {/* Canvas Area */}
-        <div className="flex-1 flex flex-col items-center justify-center p-8 pt-24 pb-24 relative">
+        <div className="flex-1 flex flex-col items-center justify-center p-8 pt-24 pb-24 relative overflow-y-auto">
           {/* Grid background for canvas */}
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.15] mix-blend-overlay pointer-events-none"></div>
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px]"></div>
 
-          {/* Video Container */}
-          <motion.div 
-            layout
-            className={`relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex items-center justify-center mb-6 ${
-              aspectRatio === '16:9' ? 'w-full max-w-5xl aspect-video' : aspectRatio === '9:16' ? 'h-full max-h-[700px] aspect-[9/16]' : 'h-full max-h-[600px] aspect-square'
-            }`}
-          >
-            {/* Base Media */}
-            <motion.div 
-              className="absolute inset-0 bg-neutral-900"
-              animate={getBeatAnimation()}
-            >
-              {mediaType === 'video' ? (
-                <video 
-                  ref={videoRef}
-                  src={mediaSrc || undefined} 
-                  loop 
-                  muted 
-                  playsInline
-                  className="w-full h-full object-cover transition-opacity duration-75"
-                />
-              ) : (
-                <img 
-                  id="preview-image"
-                  src={mediaSrc || undefined} 
-                  alt="Background" 
-                  className="w-full h-full object-cover"
-                />
-              )}
-            </motion.div>
-
-            {/* Cinemagraph Simulation Overlay */}
-            {activeStep === 'method' && loopMethod === 'Cinemagraph' && mediaType === 'image' && (
-              <div className="absolute inset-0 pointer-events-none border-4 border-dashed border-indigo-500/30 m-8 rounded-xl flex items-center justify-center">
-                 <span className="bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full font-medium">
-                   Cinemagraph Mask Area
-                 </span>
+          <div className="flex flex-col xl:flex-row items-center justify-center gap-8 w-full max-w-[1600px] mb-6">
+            {/* Original Source */}
+            <div className="flex flex-col items-center w-full max-w-3xl">
+              <div className="flex justify-between items-center w-full mb-3 px-2">
+                <span className="text-sm font-bold text-neutral-400">원본 소스</span>
+                <button 
+                  onClick={() => {
+                    if (document.fullscreenElement) {
+                      document.exitFullscreen();
+                    } else {
+                      originalContainerRef.current?.requestFullscreen();
+                    }
+                  }}
+                  className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors"
+                  title="전체화면 보기"
+                >
+                  <Maximize className="w-4 h-4" />
+                </button>
               </div>
-            )}
-
-            {/* Real-time Overlays */}
-            {showWatermark && (
-              <div className="absolute top-8 right-8 text-white/50 font-black text-2xl tracking-wider select-none pointer-events-none z-30">
-                {watermarkText}
-              </div>
-            )}
-            
-            {(songTitle || artistName) && (
               <div 
-                className={`absolute pointer-events-none z-30 flex flex-col ${
-                  textBehindSubject 
-                    ? 'inset-0 items-center justify-center mix-blend-overlay' 
-                    : 'bottom-12 left-10'
-                }`}
-                style={{ opacity: textOpacity / 100 }}
+                ref={originalContainerRef}
+                className="w-full flex flex-col items-center justify-center bg-neutral-950 rounded-2xl"
               >
-                <span 
-                  className={`font-black leading-none ${
-                    textBehindSubject ? 'text-6xl sm:text-7xl md:text-8xl text-center' : 'text-3xl sm:text-4xl md:text-5xl mb-2'
-                  }`}
-                  style={{ color: titleColor }}
-                >
-                  {songTitle.toUpperCase()}
-                </span>
-                <span 
-                  className={`font-bold ${
-                    textBehindSubject ? 'text-2xl sm:text-3xl md:text-4xl mt-4' : 'text-lg sm:text-xl md:text-2xl'
-                  }`}
-                  style={{ color: artistColor }}
-                >
-                  {artistName}
-                </span>
-              </div>
-            )}
-
-            {/* Progress Bar (Bottom) */}
-            {showProgressBar && (
-              <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/10 backdrop-blur-sm z-30">
                 <div 
-                  className="h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)] transition-all duration-100 ease-linear"
-                  style={{ width: `${progress}%` }}
-                />
+                  className={`relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex items-center justify-center w-full ${
+                    aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'max-w-[360px] sm:max-w-[400px] aspect-[9/16]' : 'max-w-[500px] aspect-square'
+                  }`}
+                >
+                  {mediaType === 'video' ? (
+                    <video 
+                      ref={originalVideoRef}
+                      src={mediaSrc || undefined} 
+                      loop 
+                      muted 
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <img 
+                      src={mediaSrc || undefined} 
+                      alt="Original Source" 
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </div>
+                
+                {/* Original Control Bar */}
+                {mediaType === 'video' && (
+                  <div className="w-full bg-neutral-900/80 backdrop-blur-md border border-neutral-800 rounded-2xl p-4 flex items-center gap-4 shadow-xl mt-4">
+                    <button 
+                      onClick={() => setIsOriginalPlaying(!isOriginalPlaying)}
+                      className="w-10 h-10 bg-neutral-700 hover:bg-neutral-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 shrink-0"
+                    >
+                      {isOriginalPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                    </button>
+                    
+                    <div className="text-xs font-mono text-neutral-400 shrink-0 w-10 text-right">
+                      {formatTime(originalCurrentTime)}
+                    </div>
+                    
+                    <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden relative">
+                      <div 
+                        className="absolute top-0 left-0 bottom-0 bg-neutral-500 transition-all duration-100 ease-linear"
+                        style={{ width: `${originalProgress}%` }}
+                      />
+                    </div>
+                    
+                    <div className="text-xs font-mono text-neutral-400 shrink-0 w-10">
+                      {formatTime(originalDuration)}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </motion.div>
+            </div>
 
-          {/* Bottom Control Bar */}
-          <div className="relative z-20 w-full max-w-3xl bg-neutral-900/80 backdrop-blur-md border border-neutral-800 rounded-2xl p-4 flex items-center gap-4 shadow-xl">
-            <button 
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="w-10 h-10 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 shrink-0"
-            >
-              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-            </button>
-            
-            <div className="text-xs font-mono text-neutral-400 shrink-0 w-10 text-right">
-              {formatTime(currentTime)}
-            </div>
-            
-            <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden relative">
+            {/* Preview with Settings */}
+            <div className="flex flex-col items-center w-full max-w-3xl">
+              <div className="flex justify-between items-center w-full mb-3 px-2">
+                <span className="text-sm font-bold text-neutral-400">설정 시 미리보기</span>
+                <button 
+                  onClick={() => {
+                    if (document.fullscreenElement) {
+                      document.exitFullscreen();
+                    } else {
+                      previewContainerRef.current?.requestFullscreen();
+                    }
+                  }}
+                  className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors"
+                  title="전체화면 보기"
+                >
+                  <Maximize className="w-4 h-4" />
+                </button>
+              </div>
               <div 
-                className="absolute top-0 left-0 bottom-0 bg-indigo-500 transition-all duration-100 ease-linear"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            
-            <div className="text-xs font-mono text-neutral-400 shrink-0 w-10">
-              {formatTime(duration)}
+                ref={previewContainerRef}
+                className="w-full flex flex-col items-center justify-center bg-neutral-950 rounded-2xl"
+              >
+                <motion.div 
+                  layout
+                  className={`relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex items-center justify-center w-full ${
+                    aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'max-w-[360px] sm:max-w-[400px] aspect-[9/16]' : 'max-w-[500px] aspect-square'
+                  }`}
+                >
+                  {/* Base Media */}
+                  <motion.div 
+                    className="absolute inset-0 bg-neutral-900"
+                    animate={getBeatAnimation()}
+                  >
+                    {mediaType === 'video' ? (
+                      <video 
+                        ref={videoRef}
+                        src={mediaSrc || undefined} 
+                        loop 
+                        muted 
+                        playsInline
+                        className="w-full h-full object-cover transition-opacity duration-75"
+                      />
+                    ) : (
+                      <img 
+                        id="preview-image"
+                        src={mediaSrc || undefined} 
+                        alt="Background" 
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </motion.div>
+
+                  {/* Cinemagraph Simulation Overlay */}
+                  {activeStep === 'method' && loopMethod === 'Cinemagraph' && mediaType === 'image' && (
+                    <div className="absolute inset-0 pointer-events-none border-4 border-dashed border-indigo-500/30 m-8 rounded-xl flex items-center justify-center">
+                       <span className="bg-black/50 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full font-medium">
+                         Cinemagraph Mask Area
+                       </span>
+                    </div>
+                  )}
+
+                  {/* Real-time Overlays */}
+                  {showWatermark && (
+                    <div className="absolute top-8 right-8 text-white/50 font-black text-2xl tracking-wider select-none pointer-events-none z-30">
+                      {watermarkText}
+                    </div>
+                  )}
+                  
+                  {(songTitle || artistName) && (
+                    <div 
+                      className={`absolute pointer-events-none z-30 flex flex-col ${
+                        textBehindSubject 
+                          ? 'inset-0 items-center justify-center mix-blend-overlay' 
+                          : 'bottom-12 left-10'
+                      }`}
+                      style={{ opacity: textOpacity / 100 }}
+                    >
+                      <span 
+                        className={`font-black leading-none ${
+                          textBehindSubject ? 'text-6xl sm:text-7xl md:text-8xl text-center' : 'text-3xl sm:text-4xl md:text-5xl mb-2'
+                        }`}
+                        style={{ color: titleColor }}
+                      >
+                        {songTitle.toUpperCase()}
+                      </span>
+                      <span 
+                        className={`font-bold ${
+                          textBehindSubject ? 'text-2xl sm:text-3xl md:text-4xl mt-4' : 'text-lg sm:text-xl md:text-2xl'
+                        }`}
+                        style={{ color: artistColor }}
+                      >
+                        {artistName}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Progress Bar (Bottom) */}
+                  {showProgressBar && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-white/10 backdrop-blur-sm z-30">
+                      <div 
+                        className="h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.8)] transition-all duration-100 ease-linear"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  )}
+                </motion.div>
+
+                {/* Preview Control Bar */}
+                <div className="w-full bg-neutral-900/80 backdrop-blur-md border border-neutral-800 rounded-2xl p-4 flex items-center gap-4 shadow-xl mt-4">
+                  <button 
+                    onClick={() => setIsPlaying(!isPlaying)}
+                    className="w-10 h-10 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 shrink-0"
+                  >
+                    {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                  </button>
+                  
+                  <div className="text-xs font-mono text-neutral-400 shrink-0 w-10 text-right">
+                    {formatTime(currentTime)}
+                  </div>
+                  
+                  <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden relative">
+                    <div 
+                      className="absolute top-0 left-0 bottom-0 bg-indigo-500 transition-all duration-100 ease-linear"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  
+                  <div className="text-xs font-mono text-neutral-400 shrink-0 w-10">
+                    {formatTime(duration)}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
