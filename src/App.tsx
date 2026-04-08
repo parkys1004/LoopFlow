@@ -1280,14 +1280,19 @@ export default function App() {
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.15] mix-blend-overlay pointer-events-none"></div>
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none"></div>
 
-          <div className="flex flex-col xl:flex-row items-center justify-center gap-8 w-full max-w-[1600px] mb-6 relative z-10">
+          <div className="flex flex-col xl:flex-row items-center justify-center gap-8 w-full max-w-[1600px] mb-6">
             {/* Original Source */}
             <div className={isFullscreenOriginal ? "fixed inset-0 z-[100] bg-neutral-950 p-4 sm:p-8 flex flex-col items-center justify-center" : "flex flex-col items-center w-full max-w-3xl"}>
               <div className={`flex justify-between items-center w-full mb-3 px-2 ${isFullscreenOriginal ? 'max-w-5xl' : ''}`}>
                 <span className="text-sm font-bold text-neutral-400">원본 소스</span>
                 <button 
-                  onClick={() => setIsFullscreenOriginal(!isFullscreenOriginal)}
-                  className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsFullscreenOriginal(!isFullscreenOriginal);
+                  }}
+                  className="p-2 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors relative z-50 cursor-pointer"
                   title={isFullscreenOriginal ? "전체화면 닫기" : "전체화면 보기"}
                 >
                   {isFullscreenOriginal ? <Minimize className="w-5 h-5" /> : <Maximize className="w-4 h-4" />}
@@ -1299,8 +1304,10 @@ export default function App() {
               >
                 <div 
                   className={`relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex items-center justify-center w-full ${
-                    aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'max-w-[360px] sm:max-w-[400px] aspect-[9/16]' : 'max-w-[500px] aspect-square'
-                  } ${isFullscreenOriginal ? 'max-h-full' : ''}`}
+                    isFullscreenOriginal 
+                      ? `h-full max-h-[calc(100vh-120px)] ${aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-square'}`
+                      : `${aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'max-w-[360px] sm:max-w-[400px] aspect-[9/16]' : 'max-w-[500px] aspect-square'}`
+                  }`}
                 >
                   {mediaType === 'video' ? (
                     <video 
@@ -1354,8 +1361,13 @@ export default function App() {
               <div className={`flex justify-between items-center w-full mb-3 px-2 ${isFullscreenPreview ? 'max-w-5xl' : ''}`}>
                 <span className="text-sm font-bold text-neutral-400">설정 시 미리보기</span>
                 <button 
-                  onClick={() => setIsFullscreenPreview(!isFullscreenPreview)}
-                  className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsFullscreenPreview(!isFullscreenPreview);
+                  }}
+                  className="p-2 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors relative z-50 cursor-pointer"
                   title={isFullscreenPreview ? "전체화면 닫기" : "전체화면 보기"}
                 >
                   {isFullscreenPreview ? <Minimize className="w-5 h-5" /> : <Maximize className="w-4 h-4" />}
@@ -1368,8 +1380,10 @@ export default function App() {
                 <motion.div 
                   layout
                   className={`relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex items-center justify-center w-full ${
-                    aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'max-w-[360px] sm:max-w-[400px] aspect-[9/16]' : 'max-w-[500px] aspect-square'
-                  } ${isFullscreenPreview ? 'max-h-full' : ''}`}
+                    isFullscreenPreview 
+                      ? `h-full max-h-[calc(100vh-120px)] ${aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-square'}`
+                      : `${aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'max-w-[360px] sm:max-w-[400px] aspect-[9/16]' : 'max-w-[500px] aspect-square'}`
+                  }`}
                 >
                   {/* Base Media */}
                   <motion.div 
