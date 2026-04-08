@@ -4,7 +4,7 @@ import {
   Wand2, Activity, Sliders, Layout, UploadCloud, 
   CheckCircle2, Loader2, Check, Sparkles, Scissors, 
   Zap, Video, MoveHorizontal, RefreshCw, ArrowRight, X, Type,
-  Settings, Save, Upload, Key, AlertCircle, Maximize
+  Settings, Save, Upload, Key, AlertCircle, Maximize, Minimize
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
@@ -190,6 +190,9 @@ export default function App() {
   
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+
+  const [isFullscreenOriginal, setIsFullscreenOriginal] = useState(false);
+  const [isFullscreenPreview, setIsFullscreenPreview] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const originalVideoRef = useRef<HTMLVideoElement>(null);
@@ -1275,35 +1278,29 @@ export default function App() {
         <div className="flex-1 flex flex-col items-center justify-center p-8 pt-24 pb-24 relative overflow-y-auto">
           {/* Grid background for canvas */}
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.15] mix-blend-overlay pointer-events-none"></div>
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px]"></div>
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none"></div>
 
-          <div className="flex flex-col xl:flex-row items-center justify-center gap-8 w-full max-w-[1600px] mb-6">
+          <div className="flex flex-col xl:flex-row items-center justify-center gap-8 w-full max-w-[1600px] mb-6 relative z-10">
             {/* Original Source */}
-            <div className="flex flex-col items-center w-full max-w-3xl">
-              <div className="flex justify-between items-center w-full mb-3 px-2">
+            <div className={isFullscreenOriginal ? "fixed inset-0 z-[100] bg-neutral-950 p-4 sm:p-8 flex flex-col items-center justify-center" : "flex flex-col items-center w-full max-w-3xl"}>
+              <div className={`flex justify-between items-center w-full mb-3 px-2 ${isFullscreenOriginal ? 'max-w-5xl' : ''}`}>
                 <span className="text-sm font-bold text-neutral-400">원본 소스</span>
                 <button 
-                  onClick={() => {
-                    if (document.fullscreenElement) {
-                      document.exitFullscreen();
-                    } else {
-                      originalContainerRef.current?.requestFullscreen();
-                    }
-                  }}
+                  onClick={() => setIsFullscreenOriginal(!isFullscreenOriginal)}
                   className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors"
-                  title="전체화면 보기"
+                  title={isFullscreenOriginal ? "전체화면 닫기" : "전체화면 보기"}
                 >
-                  <Maximize className="w-4 h-4" />
+                  {isFullscreenOriginal ? <Minimize className="w-5 h-5" /> : <Maximize className="w-4 h-4" />}
                 </button>
               </div>
               <div 
                 ref={originalContainerRef}
-                className="w-full flex flex-col items-center justify-center bg-neutral-950 rounded-2xl"
+                className={`w-full flex flex-col items-center justify-center bg-neutral-950 rounded-2xl ${isFullscreenOriginal ? 'max-w-5xl flex-1 min-h-0' : ''}`}
               >
                 <div 
                   className={`relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex items-center justify-center w-full ${
                     aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'max-w-[360px] sm:max-w-[400px] aspect-[9/16]' : 'max-w-[500px] aspect-square'
-                  }`}
+                  } ${isFullscreenOriginal ? 'max-h-full' : ''}`}
                 >
                   {mediaType === 'video' ? (
                     <video 
@@ -1353,32 +1350,26 @@ export default function App() {
             </div>
 
             {/* Preview with Settings */}
-            <div className="flex flex-col items-center w-full max-w-3xl">
-              <div className="flex justify-between items-center w-full mb-3 px-2">
+            <div className={isFullscreenPreview ? "fixed inset-0 z-[100] bg-neutral-950 p-4 sm:p-8 flex flex-col items-center justify-center" : "flex flex-col items-center w-full max-w-3xl"}>
+              <div className={`flex justify-between items-center w-full mb-3 px-2 ${isFullscreenPreview ? 'max-w-5xl' : ''}`}>
                 <span className="text-sm font-bold text-neutral-400">설정 시 미리보기</span>
                 <button 
-                  onClick={() => {
-                    if (document.fullscreenElement) {
-                      document.exitFullscreen();
-                    } else {
-                      previewContainerRef.current?.requestFullscreen();
-                    }
-                  }}
+                  onClick={() => setIsFullscreenPreview(!isFullscreenPreview)}
                   className="p-1.5 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors"
-                  title="전체화면 보기"
+                  title={isFullscreenPreview ? "전체화면 닫기" : "전체화면 보기"}
                 >
-                  <Maximize className="w-4 h-4" />
+                  {isFullscreenPreview ? <Minimize className="w-5 h-5" /> : <Maximize className="w-4 h-4" />}
                 </button>
               </div>
               <div 
                 ref={previewContainerRef}
-                className="w-full flex flex-col items-center justify-center bg-neutral-950 rounded-2xl"
+                className={`w-full flex flex-col items-center justify-center bg-neutral-950 rounded-2xl ${isFullscreenPreview ? 'max-w-5xl flex-1 min-h-0' : ''}`}
               >
                 <motion.div 
                   layout
                   className={`relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex items-center justify-center w-full ${
                     aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'max-w-[360px] sm:max-w-[400px] aspect-[9/16]' : 'max-w-[500px] aspect-square'
-                  }`}
+                  } ${isFullscreenPreview ? 'max-h-full' : ''}`}
                 >
                   {/* Base Media */}
                   <motion.div 
