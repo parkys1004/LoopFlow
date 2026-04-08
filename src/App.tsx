@@ -174,6 +174,7 @@ export default function App() {
   // Step 5: Export
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [exportResolution, setExportResolution] = useState<'FHD' | '4K'>('FHD');
+  const [loopCount, setLoopCount] = useState(1);
   
   // Global & Playback State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -530,6 +531,11 @@ export default function App() {
     setIsExporting(true);
     setExportProgress(0);
     
+    const wasPlaying = isPlaying;
+    if (!isPlaying) {
+      setIsPlaying(true);
+    }
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
     
@@ -571,20 +577,25 @@ export default function App() {
       a.download = `LoopFlow_${dateStr}.webm`;
       a.click();
       setIsExporting(false);
+      if (!wasPlaying) {
+        setIsPlaying(false);
+      }
     };
     
     recorder.start();
     
-    let recordDuration = 5000; // Default 5 seconds for image
+    let singleLoopDuration = 5000; // Default 5 seconds for image
     if (mediaType === 'video' && videoRef.current) {
       const vidDuration = videoRef.current.duration;
       if (vidDuration) {
         const startTime = (loopStart / 100) * vidDuration;
         const endTime = (loopEnd / 100) * vidDuration;
-        recordDuration = (endTime - startTime) * 1000;
+        singleLoopDuration = (endTime - startTime) * 1000;
         videoRef.current.currentTime = startTime; // Reset to start of loop
       }
     }
+    
+    const recordDuration = singleLoopDuration * loopCount;
     
     const startTimeMs = Date.now();
     
@@ -700,6 +711,23 @@ export default function App() {
     { id: '1:1', label: 'Instagram (1:1)', icon: <div className="w-5 h-5 border-2 border-current rounded-sm" /> }
   ];
 
+  const getFullscreenWrapperStyle = (isFullscreen: boolean) => {
+    if (!isFullscreen) return {};
+    const maxHeight = 'calc(100vh - 200px)';
+    if (aspectRatio === '16:9') return { width: `min(100%, calc(${maxHeight} * 16 / 9))` };
+    if (aspectRatio === '9:16') return { width: `min(100%, calc(${maxHeight} * 9 / 16))` };
+    return { width: `min(100%, ${maxHeight})` };
+  };
+
+  const getVideoContainerClasses = (isFullscreen: boolean) => {
+    const base = "relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex items-center justify-center w-full";
+    if (aspectRatio === '16:9') return `${base} aspect-video`;
+    if (aspectRatio === '9:16') {
+      return isFullscreen ? `${base} aspect-[9/16]` : `${base} max-w-[360px] sm:max-w-[400px] aspect-[9/16] mx-auto`;
+    }
+    return isFullscreen ? `${base} aspect-square` : `${base} max-w-[500px] aspect-square mx-auto`;
+  };
+
   return (
     <div className="h-screen overflow-hidden bg-neutral-950 text-neutral-200 flex font-sans selection:bg-indigo-500/30">
       {/* Hidden Inputs & Canvas */}
@@ -741,7 +769,7 @@ export default function App() {
       </aside>
 
       {/* Main Editor Panel */}
-      <div className="w-[400px] bg-neutral-900/50 border-r border-neutral-800 flex flex-col h-screen overflow-y-auto relative z-10 shadow-2xl">
+      <div className="w-[400px] bg-neutral-900/50 border-r border-neutral-800 flex flex-col h-screen overflow-y-auto relative z-10 shadow-2xl [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="p-8 border-b border-neutral-800 bg-neutral-900/80 backdrop-blur-xl sticky top-0 z-20">
           <h1 className="text-3xl font-black text-white tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
             LoopFlow
@@ -1231,6 +1259,36 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+
+                <div className="space-y-3 mb-8">
+                  <label className="block text-xs font-semibold text-neutral-300 mb-2">반복 횟수 및 총 재생 시간</label>
+                  <div className="bg-neutral-800/50 border border-neutral-700/50 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-sm text-neutral-400">반복 횟수 (Loop Count)</span>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          onClick={() => setLoopCount(Math.max(1, loopCount - 1))}
+                          className="w-8 h-8 rounded-lg bg-neutral-700 hover:bg-neutral-600 flex items-center justify-center text-white transition-colors"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono text-lg w-8 text-center">{loopCount}</span>
+                        <button 
+                          onClick={() => setLoopCount(loopCount + 1)}
+                          className="w-8 h-8 rounded-lg bg-neutral-700 hover:bg-neutral-600 flex items-center justify-center text-white transition-colors"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-4 border-t border-neutral-700/50">
+                      <span className="text-sm text-neutral-400">총 재생 시간 (Total Duration)</span>
+                      <span className="font-mono text-lg text-indigo-400 font-bold">
+                        {formatTime(duration * loopCount)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="bg-neutral-800/30 rounded-xl p-5 border border-neutral-700/50">
@@ -1242,6 +1300,12 @@ export default function App() {
                     <span>Resolution:</span> 
                     <span className="text-white font-medium">
                       {exportResolution} ({aspectRatio === '16:9' ? (exportResolution === '4K' ? '3840x2160' : '1920x1080') : aspectRatio === '9:16' ? (exportResolution === '4K' ? '2160x3840' : '1080x1920') : (exportResolution === '4K' ? '2160x2160' : '1080x1080')})
+                    </span>
+                  </li>
+                  <li className="flex justify-between">
+                    <span>Total Duration:</span> 
+                    <span className="text-white font-medium">
+                      {formatTime(duration * loopCount)} ({loopCount} loops)
                     </span>
                   </li>
                 </ul>
@@ -1275,7 +1339,7 @@ export default function App() {
         </div>
 
         {/* Canvas Area */}
-        <div className="flex-1 flex flex-col items-center justify-center p-8 pt-24 pb-24 relative overflow-y-auto">
+        <div className="flex-1 flex flex-col items-center justify-center p-8 pt-24 pb-24 relative overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           {/* Grid background for canvas */}
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.15] mix-blend-overlay pointer-events-none"></div>
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:32px_32px] pointer-events-none"></div>
@@ -1283,108 +1347,107 @@ export default function App() {
           <div className="flex flex-col xl:flex-row items-center justify-center gap-8 w-full max-w-[1600px] mb-6">
             {/* Original Source */}
             <div className={isFullscreenOriginal ? "fixed inset-0 z-[100] bg-neutral-950 p-4 sm:p-8 flex flex-col items-center justify-center" : "flex flex-col items-center w-full max-w-3xl"}>
-              <div className={`flex justify-between items-center w-full mb-3 px-2 ${isFullscreenOriginal ? 'max-w-5xl' : ''}`}>
-                <span className="text-sm font-bold text-neutral-400">원본 소스</span>
-                <button 
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsFullscreenOriginal(!isFullscreenOriginal);
-                  }}
-                  className="p-2 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors relative z-50 cursor-pointer"
-                  title={isFullscreenOriginal ? "전체화면 닫기" : "전체화면 보기"}
-                >
-                  {isFullscreenOriginal ? <Minimize className="w-5 h-5" /> : <Maximize className="w-4 h-4" />}
-                </button>
-              </div>
               <div 
-                ref={originalContainerRef}
-                className={`w-full flex flex-col items-center justify-center bg-neutral-950 rounded-2xl ${isFullscreenOriginal ? 'max-w-5xl flex-1 min-h-0' : ''}`}
+                className="flex flex-col w-full transition-all duration-300"
+                style={getFullscreenWrapperStyle(isFullscreenOriginal)}
               >
+                <div className="flex justify-between items-center w-full mb-3 px-2">
+                  <span className="text-sm font-bold text-neutral-400">원본 소스</span>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsFullscreenOriginal(!isFullscreenOriginal);
+                    }}
+                    className="p-2 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors relative z-50 cursor-pointer"
+                    title={isFullscreenOriginal ? "전체화면 닫기" : "전체화면 보기"}
+                  >
+                    {isFullscreenOriginal ? <Minimize className="w-5 h-5" /> : <Maximize className="w-4 h-4" />}
+                  </button>
+                </div>
                 <div 
-                  className={`relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex items-center justify-center w-full ${
-                    isFullscreenOriginal 
-                      ? `h-full max-h-[calc(100vh-120px)] ${aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-square'}`
-                      : `${aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'max-w-[360px] sm:max-w-[400px] aspect-[9/16]' : 'max-w-[500px] aspect-square'}`
-                  }`}
+                  ref={originalContainerRef}
+                  className={`w-full flex flex-col items-center justify-center bg-neutral-950 rounded-2xl ${isFullscreenOriginal ? 'flex-1 min-h-0' : ''}`}
                 >
-                  {mediaType === 'video' ? (
-                    <video 
-                      ref={originalVideoRef}
-                      src={mediaSrc || undefined} 
-                      loop 
-                      muted 
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <img 
-                      src={mediaSrc || undefined} 
-                      alt="Original Source" 
-                      className="w-full h-full object-cover"
-                    />
+                  <div className={getVideoContainerClasses(isFullscreenOriginal)}>
+                    {mediaType === 'video' ? (
+                      <video 
+                        ref={originalVideoRef}
+                        src={mediaSrc || undefined} 
+                        loop 
+                        muted 
+                        playsInline
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img 
+                        src={mediaSrc || undefined} 
+                        alt="Original Source" 
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                  
+                  {/* Original Control Bar */}
+                  {mediaType === 'video' && (
+                    <div className="w-full bg-neutral-900/80 backdrop-blur-md border border-neutral-800 rounded-2xl p-4 flex items-center gap-4 shadow-xl mt-4">
+                      <button 
+                        onClick={() => setIsOriginalPlaying(!isOriginalPlaying)}
+                        className="w-10 h-10 bg-neutral-700 hover:bg-neutral-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 shrink-0"
+                      >
+                        {isOriginalPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                      </button>
+                      
+                      <div className="text-xs font-mono text-neutral-400 shrink-0 w-10 text-right">
+                        {formatTime(originalCurrentTime)}
+                      </div>
+                      
+                      <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden relative">
+                        <div 
+                          className="absolute top-0 left-0 bottom-0 bg-neutral-500 transition-all duration-100 ease-linear"
+                          style={{ width: `${originalProgress}%` }}
+                        />
+                      </div>
+                      
+                      <div className="text-xs font-mono text-neutral-400 shrink-0 w-10">
+                        {formatTime(originalDuration)}
+                      </div>
+                    </div>
                   )}
                 </div>
-                
-                {/* Original Control Bar */}
-                {mediaType === 'video' && (
-                  <div className="w-full bg-neutral-900/80 backdrop-blur-md border border-neutral-800 rounded-2xl p-4 flex items-center gap-4 shadow-xl mt-4">
-                    <button 
-                      onClick={() => setIsOriginalPlaying(!isOriginalPlaying)}
-                      className="w-10 h-10 bg-neutral-700 hover:bg-neutral-600 text-white rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 shrink-0"
-                    >
-                      {isOriginalPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
-                    </button>
-                    
-                    <div className="text-xs font-mono text-neutral-400 shrink-0 w-10 text-right">
-                      {formatTime(originalCurrentTime)}
-                    </div>
-                    
-                    <div className="flex-1 h-2 bg-neutral-800 rounded-full overflow-hidden relative">
-                      <div 
-                        className="absolute top-0 left-0 bottom-0 bg-neutral-500 transition-all duration-100 ease-linear"
-                        style={{ width: `${originalProgress}%` }}
-                      />
-                    </div>
-                    
-                    <div className="text-xs font-mono text-neutral-400 shrink-0 w-10">
-                      {formatTime(originalDuration)}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
             {/* Preview with Settings */}
             <div className={isFullscreenPreview ? "fixed inset-0 z-[100] bg-neutral-950 p-4 sm:p-8 flex flex-col items-center justify-center" : "flex flex-col items-center w-full max-w-3xl"}>
-              <div className={`flex justify-between items-center w-full mb-3 px-2 ${isFullscreenPreview ? 'max-w-5xl' : ''}`}>
-                <span className="text-sm font-bold text-neutral-400">설정 시 미리보기</span>
-                <button 
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsFullscreenPreview(!isFullscreenPreview);
-                  }}
-                  className="p-2 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors relative z-50 cursor-pointer"
-                  title={isFullscreenPreview ? "전체화면 닫기" : "전체화면 보기"}
-                >
-                  {isFullscreenPreview ? <Minimize className="w-5 h-5" /> : <Maximize className="w-4 h-4" />}
-                </button>
-              </div>
               <div 
-                ref={previewContainerRef}
-                className={`w-full flex flex-col items-center justify-center bg-neutral-950 rounded-2xl ${isFullscreenPreview ? 'max-w-5xl flex-1 min-h-0' : ''}`}
+                className="flex flex-col w-full transition-all duration-300"
+                style={getFullscreenWrapperStyle(isFullscreenPreview)}
               >
-                <motion.div 
-                  layout
-                  className={`relative bg-black rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10 flex items-center justify-center w-full ${
-                    isFullscreenPreview 
-                      ? `h-full max-h-[calc(100vh-120px)] ${aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-square'}`
-                      : `${aspectRatio === '16:9' ? 'aspect-video' : aspectRatio === '9:16' ? 'max-w-[360px] sm:max-w-[400px] aspect-[9/16]' : 'max-w-[500px] aspect-square'}`
-                  }`}
+                <div className="flex justify-between items-center w-full mb-3 px-2">
+                  <span className="text-sm font-bold text-neutral-400">설정 시 미리보기</span>
+                  <button 
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsFullscreenPreview(!isFullscreenPreview);
+                    }}
+                    className="p-2 hover:bg-neutral-800 rounded-md text-neutral-400 hover:text-white transition-colors relative z-50 cursor-pointer"
+                    title={isFullscreenPreview ? "전체화면 닫기" : "전체화면 보기"}
+                  >
+                    {isFullscreenPreview ? <Minimize className="w-5 h-5" /> : <Maximize className="w-4 h-4" />}
+                  </button>
+                </div>
+                <div 
+                  ref={previewContainerRef}
+                  className={`w-full flex flex-col items-center justify-center bg-neutral-950 rounded-2xl ${isFullscreenPreview ? 'flex-1 min-h-0' : ''}`}
                 >
+                  <motion.div 
+                    layout
+                    className={getVideoContainerClasses(isFullscreenPreview)}
+                  >
                   {/* Base Media */}
                   <motion.div 
                     className="absolute inset-0 bg-neutral-900"
@@ -1488,6 +1551,7 @@ export default function App() {
                     {formatTime(duration)}
                   </div>
                 </div>
+              </div>
               </div>
             </div>
           </div>
