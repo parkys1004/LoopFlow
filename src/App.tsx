@@ -27,6 +27,7 @@ export default function App() {
   const [prompt, setPrompt] = useState('비 오는 날의 조용한 사이버펑크 헬스장');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPromptModalOpen, setIsPromptModalOpen] = useState(false);
+  const [activeCheatTab, setActiveCheatTab] = useState(0);
 
   const promptCheatKeys = [
     {
@@ -1628,9 +1629,9 @@ export default function App() {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] flex flex-col overflow-hidden"
+              className="bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl max-w-6xl w-full max-h-[85vh] flex flex-col overflow-hidden"
             >
-              <div className="p-6 border-b border-neutral-800 flex justify-between items-center bg-neutral-900/50">
+              <div className="p-6 border-b border-neutral-800 flex justify-between items-center bg-neutral-900/50 shrink-0">
                 <div>
                   <h3 className="text-xl font-bold text-white flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-indigo-400" /> 프롬프트 생성 치트키
@@ -1645,23 +1646,46 @@ export default function App() {
                 </button>
               </div>
               
-              <div className="p-6 overflow-y-auto flex-1 space-y-8 custom-scrollbar">
-                {promptCheatKeys.map((category, idx) => (
-                  <div key={idx}>
-                    <h4 className="text-sm font-bold text-indigo-300 mb-3">{category.category}</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {category.items.map((item, itemIdx) => (
-                        <button
-                          key={itemIdx}
-                          onClick={() => handleCheatKeyClick(item)}
-                          className="text-left text-xs bg-neutral-800 hover:bg-indigo-600/20 border border-neutral-700 hover:border-indigo-500/50 text-neutral-300 hover:text-white px-3 py-2 rounded-lg transition-all"
-                        >
+              <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+                {/* Tabs Sidebar */}
+                <div className="w-full md:w-64 bg-neutral-950/50 border-b md:border-b-0 md:border-r border-neutral-800 p-4 overflow-x-auto md:overflow-y-auto shrink-0 flex md:flex-col gap-2 custom-scrollbar">
+                  {promptCheatKeys.map((category, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveCheatTab(idx)}
+                      className={`text-left px-4 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap md:whitespace-normal ${
+                        activeCheatTab === idx 
+                          ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' 
+                          : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200 border border-transparent'
+                      }`}
+                    >
+                      {category.category}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Tab Content */}
+                <div className="flex-1 p-6 overflow-y-auto custom-scrollbar bg-neutral-900">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {promptCheatKeys[activeCheatTab].items.map((item, itemIdx) => (
+                      <button
+                        key={itemIdx}
+                        onClick={() => handleCheatKeyClick(item)}
+                        className="text-left group relative bg-neutral-800/50 hover:bg-indigo-600/10 border border-neutral-700 hover:border-indigo-500/50 p-5 rounded-2xl transition-all h-full flex flex-col justify-between overflow-hidden"
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <span className="text-sm text-neutral-300 group-hover:text-white leading-relaxed relative z-10">
                           {item}
-                        </button>
-                      ))}
-                    </div>
+                        </span>
+                        <div className="mt-4 flex justify-end relative z-10">
+                          <span className="text-[10px] font-bold text-neutral-500 group-hover:text-indigo-400 bg-neutral-800 group-hover:bg-indigo-500/20 px-2 py-1 rounded-md transition-colors">
+                            추가하기 +
+                          </span>
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </motion.div>
           </motion.div>
